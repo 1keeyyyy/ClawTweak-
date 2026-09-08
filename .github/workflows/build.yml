@@ -13,7 +13,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest   # 自带 VS2022 + UWP 工作负载 + Windows 11 SDK 10.0.26100.0
+    runs-on: windows-2022   # 预装 VS2022 企业版含 UWP 工作负载 + Windows 11 SDK 10.0.26100.0（无需再装）
     steps:
       - name: Checkout (含子模块 ADLX，必须 recursive)
         uses: actions/checkout@v4
@@ -24,25 +24,8 @@ jobs:
       - name: 设置 MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      # —— 确保 UWP 工作负载 + Win11 SDK 已安装（windows-latest 默认可能缺）——
-      - name: 安装 UWP 工作负载与 Windows 11 SDK
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -format value -property installationPath
-          if (-not $vsPath) { Write-Error '找不到 Visual Studio'; exit 1 }
-          Write-Output "VS 路径: $vsPath"
-          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-          Start-Process -FilePath $installer -ArgumentList @(
-            'modify', '--installPath', $vsPath,
-            '--add', 'Microsoft.VisualStudio.Workload.Universal',
-            '--add', 'Microsoft.VisualStudio.Component.Windows11SDK.26100',
-            '--quiet', '--norestart', '--wait'
-          ) -Wait -NoNewWindow
-          Write-Output 'UWP 工作负载安装完成'
-
       # —— 阶段一：编译 widget（官方命令，关掉签名，纯验证汉化不破坏编译）——
+      # 注：windows-2022 已预装 UWP 工作负载 + Win11 SDK 10.0.26100.0，无需额外安装
       - name: Restore & Build widget (no signing)
         run: |
           msbuild XboxGamingBar.sln /t:Restore /p:Configuration=Release /p:Platform=x64
