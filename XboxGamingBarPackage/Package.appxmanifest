@@ -21,7 +21,6 @@
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
-        <desktop:Extension Category="windows.fullTrustProcess" Executable="XboxGamingBarHelper\XboxGamingBarHelper.exe" />
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="microsoft.gameBarUIExtension" Id="GamingWidget" DisplayName="ClawTweaks" Description="ClawTweaks widget for changing system settings during game sessions with gamepad." PublicFolder="Images">
             <uap3:Properties>
@@ -110,7 +109,6 @@
   </Extensions>
   <Capabilities>
     <Capability Name="internetClient" />
-    <rescap:Capability Name="runFullTrust" />
     <rescap:Capability Name="allowElevation" />
     <rescap:Capability Name="broadFileSystemAccess" />
   </Capabilities>
