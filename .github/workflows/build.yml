@@ -1,0 +1,67 @@
+# ============================================================
+#  ClawTweaks 汉化版云端构建 Workflow
+#  用法：放到 fork 仓库的 .github/workflows/build.yml
+#  触发：push 到任意分支，或手动在 Actions 页点 Run workflow
+#  产物：ClawTweaks-zhCN-msix（含 .msix / 安装 exe / 测试证书 .pfx/.cer）
+# ============================================================
+name: Build ClawTweaks zh-CN
+
+on:
+  push:
+    branches: ['*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest   # 自带 VS2022 + UWP 工作负载 + Windows 11 SDK 10.0.26100.0
+    steps:
+      - name: Checkout (含子模块 ADLX，必须 recursive)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: 设置 MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      # —— 确保 UWP 工作负载 + Win11 SDK 已安装（windows-latest 默认可能缺）——
+      - name: 安装 UWP 工作负载与 Windows 11 SDK
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -format value -property installationPath
+          if (-not $vsPath) { Write-Error '找不到 Visual Studio'; exit 1 }
+          Write-Output "VS 路径: $vsPath"
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+          Start-Process -FilePath $installer -ArgumentList @(
+            'modify', '--installPath', $vsPath,
+            '--add', 'Microsoft.VisualStudio.Workload.Universal',
+            '--add', 'Microsoft.VisualStudio.Component.Windows11SDK.26100',
+            '--quiet', '--norestart', '--wait'
+          ) -Wait -NoNewWindow
+          Write-Output 'UWP 工作负载安装完成'
+
+      # —— 阶段一：编译 widget（官方命令，关掉签名，纯验证汉化不破坏编译）——
+      - name: Restore & Build widget (no signing)
+        run: |
+          msbuild XboxGamingBar.sln /t:Restore /p:Configuration=Release /p:Platform=x64
+          msbuild XboxGamingBar\XboxGamingBar.csproj /p:Configuration=Release /p:Platform=x64 /p:AppxPackageSigningEnabled=false /p:GenerateAppxPackageOnBuild=false
+
+      # —— 阶段二：打包 MSIX（wapproj 会自动造测试证书 + 签名 + 出包，可选封装成 exe）——
+      - name: Package MSIX (auto test cert)
+        run: |
+          msbuild XboxGamingBarPackage\XboxGamingBarPackage.wapproj /p:Configuration=Release /p:Platform=x64
+
+      # —— 上传产物：MSIX / 安装 exe / 证书 ——
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClawTweaks-zhCN-msix
+          path: |
+            XboxGamingBarPackage\AppPackages\**\*.msix*
+            XboxGamingBarPackage\AppPackages\**\*.exe
+            XboxGamingBarPackage\AppPackages\**\*.cer
+            XboxGamingBarPackage\AppPackages\**\*.pfx
+            XboxGamingBarPackage\*.pfx
+          if-no-files-found: warn
